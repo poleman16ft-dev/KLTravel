@@ -1,0 +1,2 @@
+sdk.dir=/PATH/TO/Android/Sdk   # Android Studio fills this in
+MAPS_API_KEY=PASTE_YOUR_GOOGLE_MAPS_KEY_HERE

@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.KLTravel" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/kl_bg</item>
+        <!-- Android 12+ system splash: black, so it flows into the crown video -->
+        <item name="android:windowSplashScreenBackground">#FF000000</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/kl_splash_blank</item>
+    </style>
+</resources>
