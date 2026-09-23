@@ -1,4 +1,4 @@
-# KL Travel v1.25.2
+# KL Travel v1.25.3
 
 Android app (Kotlin + Jetpack Compose). Reads your Google Sheet, shows a day-by-day timeline,
 routes to each event (drive / rideshare / transit / walk) on Google Maps, keeps hotel details,

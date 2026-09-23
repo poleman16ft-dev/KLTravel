@@ -2,6 +2,9 @@
 
 Every change gets a new number. App: major.minor.patch (new feature = minor, fix = patch). Template: major.minor (new or renamed columns/tabs = major, small additions = minor). Files are named with the version, e.g. KLTravel_v1.9.0.apk and KLTravel_Template_v2.4.xlsx.
 
+## App 1.25.3 - 2026-09-23
+- First step of the iOS migration: added a `:shared` Kotlin Multiplatform module (Android + iOS targets registered) and moved the first three dependency-free files (`Csv.kt`, `LoungeAccess.kt`, `Seats.kt`) into `shared/src/commonMain`. No user-facing change — same behavior, same tests, now proven to build on the new module structure. The iOS targets are registered but not yet compiled anywhere (that needs a Mac); see the iOS starter brief for the rest of the migration plan.
+
 ## App 1.25.2 - 2026-09-23
 - README title now shows the full version number (was a static "v1" that never changed) and a test guards it so it can't drift from the build version again. No app behavior change.
 

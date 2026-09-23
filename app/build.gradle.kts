@@ -24,7 +24,7 @@ android {
         minSdk = 26
         targetSdk = 35
         // One number to bump per change; also update CHANGELOG.md (a unit test checks they match).
-        val appVersion = "1.25.2"
+        val appVersion = "1.25.3"
         versionCode = appVersion.split(".").let { it[0].toInt() * 10000 + it[1].toInt() * 100 + it[2].toInt() }
         versionName = appVersion
         // Phones only (skips x86 emulators). The receipt-reading model is big per CPU type.
@@ -62,6 +62,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":shared"))
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
