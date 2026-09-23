@@ -10,12 +10,19 @@ import java.util.zip.ZipFile
 class VersionTest {
     private val root = File(System.getProperty("user.dir")!!).let { if (File(it, "../CHANGELOG.md").exists()) File(it, "..") else it }
     private val changelog by lazy { File(root, "CHANGELOG.md").readText() }
+    private val readme by lazy { File(root, "README.md").readText() }
 
     @Test fun changelogTopAppVersionMatchesBuild() {
         val top = Regex("## App (\\d+\\.\\d+\\.\\d+)").find(changelog)!!.groupValues[1]
         assertEquals(top, BuildConfig.VERSION_NAME)
         val (a, b, c) = top.split(".").map { it.toInt() }
         assertEquals(a * 10000 + b * 100 + c, BuildConfig.VERSION_CODE)
+    }
+
+    @Test fun readmeTitleShowsFullVersion() {
+        val match = Regex("^# KL Travel v(\\d+\\.\\d+\\.\\d+)", RegexOption.MULTILINE).find(readme)
+        assertNotNull("README.md's first line must be '# KL Travel v<full version>'", match)
+        assertEquals(BuildConfig.VERSION_NAME, match!!.groupValues[1])
     }
 
     @Test fun changelogTopTemplateVersionMatchesCode() {

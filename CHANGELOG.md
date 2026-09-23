@@ -2,6 +2,9 @@
 
 Every change gets a new number. App: major.minor.patch (new feature = minor, fix = patch). Template: major.minor (new or renamed columns/tabs = major, small additions = minor). Files are named with the version, e.g. KLTravel_v1.9.0.apk and KLTravel_Template_v2.4.xlsx.
 
+## App 1.25.2 - 2026-09-23
+- README title now shows the full version number (was a static "v1" that never changed) and a test guards it so it can't drift from the build version again. No app behavior change.
+
 ## App 1.25.1 - 2026-09-22
 - App icon: added "TRAVEL" under the crown-and-KL mark, in the same blue with a cyan glow, so it's easy to tell apart from your other KL apps at a glance on the home screen. `ui/` assets only, no code change. Asset: `app/src/main/res/drawable-nodpi/ic_launcher_fg.png`.
 
