@@ -1,0 +1,194 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..76ae1c1
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,33 @@
++# Runs on every push and pull request.
++#  - android:    the existing unit tests, plus the shared module's tests on the JVM.
++#  - ios-shared: compiles the shared module for iOS and runs its tests on the iOS Simulator.
++#                This is how iOS breakage is caught without owning a Mac. (Kotlin/Native needs a macOS host.)
++# Note: macOS runner minutes are billed at a higher rate than Linux on GitHub's free allowance.
++name: CI
++
++on:
++  push:
++  pull_request:
++
++jobs:
++  android:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: 17
++      - uses: gradle/actions/setup-gradle@v4
++      - run: ./gradlew :app:testDebugUnitTest :shared:testDebugUnitTest --stacktrace
++
++  ios-shared:
++    runs-on: macos-14
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: 17
++      - uses: gradle/actions/setup-gradle@v4
++      - run: ./gradlew :shared:compileKotlinIosArm64 :shared:iosSimulatorArm64Test --stacktrace
+diff --git a/docs/IOS_FOUNDATION.md b/docs/IOS_FOUNDATION.md
+new file mode 100644
+index 0000000..36ffc95
+--- /dev/null
++++ b/docs/IOS_FOUNDATION.md
+@@ -0,0 +1,45 @@
++# iOS foundation: status and next steps
++
++Companion to the "iOS Companion: Starter Brief" (the plan: Kotlin Multiplatform for logic, Compose Multiplatform for UI).
++This file records what exists, how it is checked, and what comes next. Nothing here has been compiled yet:
++the tooling used to write it had no Gradle, Android SDK or Mac. CI (below) is the first real check.
++
++## What exists now
++- `:shared` module (added in 1.25.3) with Android + iOS targets. Holds `Csv.kt`, `LoungeAccess.kt`, `Seats.kt`.
++- `shared/src/commonTest`: `CsvTest`, `SeatsTest`, `LoungeAccessTest`, built from assertions that already pass in `:app`.
++  They run on the JVM and on the iOS Simulator, so shared logic is proven on both platforms.
++- `.github/workflows/ci.yml`: an `android` job (Linux) and an `ios-shared` job (macOS). The macOS job is how iOS
++  breakage gets caught without a local Mac. First run may need small fixes (SDK paths, task names).
++
++## Where each file stands
++Scan was by imports plus a look at the files, so treat it as a starting point: a file can also use `java.*` inline
++(`Airlines.kt` calls `java.net.URLEncoder` without importing it).
++
++| Group | Files | What moving to `commonMain` needs |
++|---|---|---|
++| Nearly there (`java.time` / small `java.*`) | `GoogleUsage`, `Layovers`, `ReceiptParser`, `SheetParser`, `Airlines` (URL encoding) | `java.time` -> `kotlinx-datetime`; write a small URL encoder or use an `expect/actual` |
++| Plain data + parsing that need a JSON library (`org.json`) | `Trips`, `Backup`, `TransportImages`, `CurrencyClient` | `org.json` -> `kotlinx-serialization-json` |
++| Network clients | `FlightClient`, `WeatherClient`, `LoungeClient`, `RoutesClient`, `HotelPhotoClient`, `TransportPhotoClient` | Ktor client + serialization; `Context`/cache-file parts stay per-platform |
++| Android-bound | `Db`, `Models` (Room annotations), `Prefs`, `DocStore`, `SheetRepository`, `MapsKey`, `Origin`, `receipt/ReceiptTools`, `work/*`, `widget/*` | Room upgrade to a multiplatform version (2.7+), a settings store, and `expect/actual` bridges |
++
++UI (about 3,100 lines): `Theme`, `TimelineScreen`, `CategoryScreen`, `ToolsScreen` have no Android-specific references
++and are the natural first screens for Compose Multiplatform. `VaultScreen`, `DetailScreen`, `SettingsScreen`,
++`LoungeCard`, `TransportPhoto`, `ExpensesScreen`, `Util`, `SetupWizard` need the most bridging.
++
++## Suggested order
++1. Add `kotlinx-datetime`, `kotlinx-serialization-json` and Ktor to `:shared`.
++2. Move `Models` (data classes only, Room annotations split off), `SheetParser`, `Layovers`, `GoogleUsage`, `ReceiptParser`. Move their tests to `commonTest`. Keep `:app` tests green after every step.
++3. Upgrade Room to a multiplatform version and move the database.
++4. Add the Compose Multiplatform plugin. Move `Theme` and the Timeline screen first.
++5. Create the iOS app shell (needs a Mac): add `binaries.framework` to the iOS targets in `shared/build.gradle.kts` and an Xcode project that hosts the shared UI.
++6. Platform bridges: receipt text recognition (Apple Vision), background alerts (BGTaskScheduler), maps (WebView route map first), WidgetKit widget (Swift), Keychain-backed vault.
++
++## Known iOS limits (platform, not bugs)
++- Background alerts will be less reliable than on Android (iOS controls when background work runs).
++- No equivalent of Android's screenshot blocking for the document vault.
++- Widgets must be written in SwiftUI/WidgetKit regardless of the shared code.
++- No sideloading: iPhone testing goes through Xcode or TestFlight, and App Store distribution needs the paid Apple Developer account.
++
++## Versioning
++This change adds tests, CI and docs only. No app code or version changed, so `CHANGELOG.md` and `appVersion` were left
++alone (a unit test ties them together). Log it under the next version bump.
+diff --git a/shared/build.gradle.kts b/shared/build.gradle.kts
+index 540bd8a..46735a1 100644
+--- a/shared/build.gradle.kts
++++ b/shared/build.gradle.kts
+@@ -17,6 +17,10 @@ kotlin {
+     sourceSets {
+         commonMain.dependencies {
+         }
++        // Tests here run on the JVM (Android) and on the iOS Simulator, so shared logic is proven on both.
++        commonTest.dependencies {
++            implementation(kotlin("test"))
++        }
+     }
+ }
+ 
+diff --git a/shared/src/commonTest/kotlin/com/kl/travel/data/CsvTest.kt b/shared/src/commonTest/kotlin/com/kl/travel/data/CsvTest.kt
+new file mode 100644
+index 0000000..41990cf
+--- /dev/null
++++ b/shared/src/commonTest/kotlin/com/kl/travel/data/CsvTest.kt
+@@ -0,0 +1,25 @@
++package com.kl.travel.data
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertTrue
++
++class CsvTest {
++    @Test fun quotesAndNewlinesInsideCells() {
++        val rows = Csv.parse("a,b\r\n\"x, y\",\"he said \"\"hi\"\"\nline2\"\r\n")
++        assertEquals(listOf("x, y", "he said \"hi\"\nline2"), rows[1])
++    }
++
++    @Test fun plainRowsWithAndWithoutTrailingNewline() {
++        assertEquals(listOf(listOf("a", "b"), listOf("1", "2")), Csv.parse("a,b\n1,2"))
++        assertEquals(listOf(listOf("a", "b"), listOf("1", "2")), Csv.parse("a,b\r\n1,2\r\n"))
++    }
++
++    @Test fun byteOrderMarkIsIgnored() {
++        assertEquals("a", Csv.parse("\uFEFFa,b\n1,2")[0][0])
++    }
++
++    @Test fun emptyInputGivesNoRows() {
++        assertTrue(Csv.parse("").isEmpty())
++    }
++}
+diff --git a/shared/src/commonTest/kotlin/com/kl/travel/data/LoungeAccessTest.kt b/shared/src/commonTest/kotlin/com/kl/travel/data/LoungeAccessTest.kt
+new file mode 100644
+index 0000000..e040373
+--- /dev/null
++++ b/shared/src/commonTest/kotlin/com/kl/travel/data/LoungeAccessTest.kt
+@@ -0,0 +1,27 @@
++package com.kl.travel.data
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFalse
++import kotlin.test.assertTrue
++
++class LoungeAccessTest {
++    @Test fun accessMatching() {
++        val mine = setOf(LoungeProgram.PRIORITY_PASS, LoungeProgram.AIRLINE_STATUS)
++        assertEquals(listOf(LoungeProgram.PRIORITY_PASS), LoungeProgram.matches("Plaza Premium Lounge (T1)", mine))
++        assertEquals(listOf(LoungeProgram.AIRLINE_STATUS), LoungeProgram.matches("EVA Air Infinity Lounge", mine))
++        assertEquals(emptyList<LoungeProgram>(), LoungeProgram.matches("Centurion Lounge", mine))
++        assertEquals(listOf(LoungeProgram.AMEX), LoungeProgram.matches("The Centurion Lounge", setOf(LoungeProgram.AMEX)))
++        assertEquals(
++            setOf(LoungeProgram.AMEX, LoungeProgram.CHASE),
++            LoungeProgram.decode(LoungeProgram.encode(setOf(LoungeProgram.AMEX, LoungeProgram.CHASE))),
++        )
++    }
++
++    @Test fun businessCabinDetection() {
++        assertTrue(LoungeProgram.isBusinessCabin("Business")); assertTrue(LoungeProgram.isBusinessCabin("first class"))
++        assertTrue(LoungeProgram.isBusinessCabin("Royal Laurel Class"))
++        assertFalse(LoungeProgram.isBusinessCabin("Economy")); assertFalse(LoungeProgram.isBusinessCabin("Premium Economy"))
++        assertFalse(LoungeProgram.isBusinessCabin(""))
++    }
++}
+diff --git a/shared/src/commonTest/kotlin/com/kl/travel/data/SeatsTest.kt b/shared/src/commonTest/kotlin/com/kl/travel/data/SeatsTest.kt
+new file mode 100644
+index 0000000..2651fa9
+--- /dev/null
++++ b/shared/src/commonTest/kotlin/com/kl/travel/data/SeatsTest.kt
+@@ -0,0 +1,19 @@
++package com.kl.travel.data
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertTrue
++
++class SeatsTest {
++    @Test fun seatsListEveryTravelerWithName() {
++        val two = Seats.parse("Luis 3C / Sabrina 3D")
++        assertEquals(listOf(SeatEntry("Luis", "3C"), SeatEntry("Sabrina", "3D")), two)
++        assertEquals(listOf("3C", "3D"), Seats.parse("3C, 3D").map { it.seat })
++        assertEquals(SeatEntry("Sabrina", "12B"), Seats.parse("Luis: 12a; Sabrina - 12B")[1])
++        assertEquals(SeatEntry("Sabrina", "5F"), Seats.parse("5F Sabrina").single())
++        assertEquals(listOf(SeatEntry("", "6K")), Seats.parse("6K"))
++        assertEquals(3, Seats.parse("Luis 1A and Sabrina 1B & Kid 1C").size)
++        assertTrue(Seats.parse("").isEmpty())
++        assertEquals("Luis 3C, Sabrina 3D", Seats.summary("Luis 3C / Sabrina 3D"))
++    }
++}
