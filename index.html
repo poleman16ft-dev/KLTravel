@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#10141B" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="A trip shared from KL Travel">
 <meta property="og:description" content="Open to see the plan, stays and flights. Always the latest version, no app needed.">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://docs.google.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src https://upload.wikimedia.org data:; connect-src https://en.wikipedia.org https://commons.wikimedia.org https://geocoding-api.open-meteo.com https://api.open-meteo.com; frame-src https://www.google.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://docs.google.com; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src https://upload.wikimedia.org https://thumb.wikimedia.org data:; connect-src https://en.wikipedia.org https://commons.wikimedia.org https://geocoding-api.open-meteo.com https://api.open-meteo.com; frame-src https://www.google.com; base-uri 'none'; form-action 'none'">
 <title>KL Travel trip</title>
 <!--
   KL Travel web trip, version 2 (app 5.4.1+). For people without the app: Share > "Share a web link" sends
@@ -265,7 +265,8 @@ footer .btn { margin-top: 10px; }
   function getJson(url) {
     return fetch(url, { credentials: "omit", referrerPolicy: "no-referrer" }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
   }
-  function okImg(u) { return typeof u === "string" && /^https:\/\/upload\.wikimedia\.org\/[^\s"'<>()]+$/.test(u) ? u : null; }
+  // Wikimedia serves pictures from upload. and (since 2026) thumb.wikimedia.org; nothing else is ever loaded.
+  function okImg(u) { return typeof u === "string" && /^https:\/\/(upload|thumb)\.wikimedia\.org\/[^\s"'<>()]+$/.test(u) ? u : null; }
 
   // ---------------------------------------------------------------- reading the sheet (Google's public JSONP endpoint)
   var cbN = 0;
